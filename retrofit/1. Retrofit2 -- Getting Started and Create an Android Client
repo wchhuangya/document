@@ -1,0 +1,280 @@
+---
+title: 1. Retrofit2 -- Getting Started and Create an Android Client 
+tags: Retrofit,tutorial
+grammar_cjkRuby: true
+---
+
+[toc]
+
+该篇讲述了 `Retrofit` 的基础知识，并讲述了如何创建 `Android` 客户端的 `API` 或 `HTTP` 请求。
+
+但是，本篇不会覆盖太多起步知识。如果想知道这些信息，请参见 [主页](http://square.github.io/retrofit/) 的内容。
+
+## 什么是 Retrofit
+---
+`Retrofit` 的官网是这样描述的：
+
+> A type-safe REST client for Android and Java
+
+因此，在 `Retrofit` 中，默认使用注解来描述 `HTTP` 请求、`URL` 参数占位符等操作。此外，它还支持多个请求体，也提供了文件上传的能力。
+
+## 如何申明请求
+---
+请访问 [`Retrofit` 的主页](http://square.github.io/retrofit/) ，阅读 `API 申明部分`，以便获取如何创建请求的感觉。在那里，既有重要的说明，又有示例代码。
+
+## 准备 Android 项目
+---
+如果你已经创建了 `Android` 项目，那请跳过本段。如果没有，就使用你最喜欢的 `IDE` 来创建一个 `Android` 项目。推荐使用 `Gradle` 作为构建系统，当然，也可以使用 `Maven`。
+
+## 使用 Gradle 或 Maven 定义依赖
+---
+依赖于构建工具的不同，依赖定义的地方也不同，在 `pom.xml` 或 `build.gradle` 中定义依赖。
+
+### Retrofit 1.9 的依赖定义
+
+#### pom.xml
+---
+
+``` xml
+<dependency>  
+    <groupId>com.squareup.retrofit</groupId>
+    <artifactId>retrofit</artifactId>
+    <version>1.9.0</version>
+</dependency>  
+<dependency>  
+    <groupId>com.squareup.okhttp</groupId>
+    <artifactId>okhttp</artifactId>
+    <version>2.7.2</version>
+</dependency> 
+```
+
+#### build.gradle
+---
+
+``` profile
+dependencies {  
+    // Retrofit & OkHttp
+    compile 'com.squareup.retrofit:retrofit:1.9.0'
+    compile 'com.squareup.okhttp:okhttp:2.7.2'
+}
+```
+
+### Retrofit 2.0 的依赖定义
+
+#### pom.xml
+---
+
+``` xml
+<dependency>  
+    <groupId>com.squareup.retrofit2</groupId>
+    <artifactId>retrofit</artifactId>
+    <version>2.1.0</version>
+</dependency>  
+<dependency>  
+    <groupId>com.squareup.retrofit2</groupId>
+    <artifactId>converter-gson</artifactId>
+    <version>2.1.0</version>
+</dependency>  
+```
+
+#### build.gradle
+---
+
+``` profile
+dependencies {  
+    // Retrofit & OkHttp
+    compile 'com.squareup.retrofit2:retrofit:2.1.0'
+    compile 'com.squareup.retrofit2:converter-gson:2.1.0'
+}
+```
+
+`Retrofit 2` 默认使用 `OKHttp` 作为网络层，并且基于它进行构建。因此，在项目中不需要显示的定义这个依赖，除非你需要一个不同的版本。
+
+到现在为止，你的 `Android` 项目已经为 `Retrofit` 做好准备了，让我们创建一个持久的 `Android API/Http` 的客户端吧。
+
+## 持续发展的 Android 客户端
+---
+在对已经存在的 `Android` 客户端的调研中，由 `Bart Kiers` 创建的 [==example repository==示例](https://github.com/bkiers/retrofit-oauth/tree/master/src/main/java/nl/bigo/retrofitoauth) 崭露头角。其实，它是一个使用 `Retrofit` 进行 `OAuth` 认证的示例。但是，对于一个可持续发展的客户端来说，它提供了所有必要的元素。这就是为什么我们将把它当作一个稳定版来使用，并在后面的教程中给它扩展高级的认证功能。
+
+下面的类：`ServiceGenerator` 定义了 `Android` 客户端的基础。
+
+### 服务生成器
+---
+`ServiceGenerator` 是 `API/HTTP` 客户端的核心。在当前的状态中，它仅仅定义了一个方法，用于使用给定的类创建 `REST` 类型的适配器，下面是代码：
+
+#### Retrofit 1.9
+---
+
+``` java
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "http://your.api-base.url";
+
+    private static RestAdapter.Builder builder = new RestAdapter.Builder()
+                .setEndpoint(API_BASE_URL)
+                .setClient(new OkClient(new OkHttpClient()));
+
+    public static <S> S createService(Class<S> serviceClass) {
+        RestAdapter adapter = builder.build();
+        return adapter.create(serviceClass);
+    }
+}
+```
+
+#### Retrofit 2
+---
+
+``` java
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "http://your.api-base.url";
+
+    private static OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+
+    private static Retrofit.Builder builder =
+            new Retrofit.Builder()
+                    .baseUrl(API_BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create());
+
+    public static <S> S createService(Class<S> serviceClass) {
+        Retrofit retrofit = builder.client(httpClient.build()).build();
+        return retrofit.create(serviceClass);
+    }
+}
+```
+
+`ServiceGenerator` 基于一个基本的地址，使用 `Retrofit` 的 `RestAdapter - Builder`，创建了一个新的 `REST` 客户端。例如，`GitHub` 的基本地址是：[`https://api.github.com/`](https://api.github.com/)。该类中定义了用于 `API` 请求的、有注解的类和接口。下面的章节显示了 `Retrofit` 具体的用法，并演示如何定义一个典范式的客户端。
+
+## JSON 映射
+---
+`Retrofit 1.9` 默认集成了 `Google GSON`。你要做的就是定义你所需的用于响应的对象类，响应将会被自动映射。
+
+`Retrofit 2` 中，需要自己显式地为 `Retrofit` 对象添加转换器。上面的示例，在 `build.gradle` 文件中添加了下面的代码来引入 `Retrofit 2` 使用的 `GSON` 转换器：
+
+``` profile
+compile 'com.squareup.retrofit2:converter-gson:2.1.0'
+```
+
+现在，需要给 `Retrofit` 对象添加转换器，给 `Retrofit Builder` 对象使用 `addConverterFactory(GsonConverterFactory.create())` 方法来为对象集成 `GSON` 用为它的默认转换器。
+
+## 使用 Retrofit
+---
+好了，现在让我们定义一个 `REST` 客户端从 `GitHub` 上请求数据。首先，得创建接口、定义方法。
+
+### GitHub 客户端
+---
+下面的代码定义了一个 `GitHubClient`，和一个用于获取某个仓库贡献者列表的方法。代码来演示了 `Retrofit` 参数占位符功能（定义在路径中的 `{owner}` 和 `repo`）的用法，它们的作用是：在方法被调用时，占位符将被替换为传入的变量。
+
+#### Retrofit 1.9
+---
+
+``` java
+public interface GitHubClient {  
+    @GET("/repos/{owner}/{repo}/contributors")
+    List<Contributor> contributors(
+        @Path("owner") String owner,
+        @Path("repo") String repo
+    );
+}
+```
+
+#### Retrofit 2
+---
+
+``` java
+public interface GitHubClient {  
+    @GET("/repos/{owner}/{repo}/contributors")
+    Call<List<Contributor>> contributors(
+        @Path("owner") String owner,
+        @Path("repo") String repo
+    );
+}
+```
+
+下面是 `Contributor` 类的定义，类中必须的属性与响应数据映射相对应：
+
+```java
+static class Contributor {  
+    String login;
+    int contributions;
+}
+```
+
+关于先前提到的 `JSON` 映射：`GitHubClient` 类定义了名为 `contributors` 的方法，它的返回类型是 `List`。`Retrofit` 确保了服务响应能被正确的匹配（也就是响应匹配为相应的类）。
+
+## Request 示例
+---
+下面的代码片断演示了使用 `ServiceGenerator` 类实例化客户端，具体就是 `GitHubClient`，使用创建的客户端可以获取贡献者。这里的片断显示的是一个改进版。
+
+在运行 `GitHub` 示例中，需要手动给 `ServiceGenerator` 设置基本网址，示例中是 `https://api.github.com`：
+
+### Retrofit 1.9
+
+``` javascript
+public static void main(String... args) {  
+    // Create a very simple REST adapter which points the GitHub API endpoint.
+    GitHubClient client = ServiceGenerator.createService(GitHubClient.class);
+
+    // Fetch and print a list of the contributors to this library.
+    List<Contributor> contributors =
+        client.contributors("fs_opensource", "android-boilerplate");
+
+    for (Contributor contributor : contributors) {
+        System.out.println(
+                contributor.login + " (" + contributor.contributions + ")");
+    }
+}
+```
+
+### Retrofit 2
+---
+
+``` javascript
+public static void main(String... args) {  
+    // Create a very simple REST adapter which points the GitHub API endpoint.
+    GitHubClient client = ServiceGenerator.createService(GitHubClient.class);
+
+    // Fetch and print a list of the contributors to this library.
+    Call<List<Contributor>> call =
+        client.contributors("fs_opensource", "android-boilerplate");
+
+    try {
+        List<Contributor> contributors = call.execute().body();
+    } catch (IOException e) {
+        // handle errors
+    }
+
+    for (Contributor contributor : contributors) {
+        System.out.println(
+                contributor.login + " (" + contributor.contributions + ")");
+    }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
