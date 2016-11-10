@@ -67,6 +67,28 @@ service.profilePicture("profile-picture/path");
 
 这次，最终的请求 `Url` 由基本 `Url` 加上动态定义的端点 `Url` 所组成。这是因为 `HttpUrl` 识别出我们并没有定义 `scheme` 和 `host`，因此，它会把这两者结合到一起。
 
+第三个例子：假设后端开发者给产品推送了一个更新通知，使用的是上一个例子的知识：
+
+``` java?linenums=true
+Retrofit retrofit = Retrofit.Builder()  
+    .baseUrl("https://your.api.url/v2/");
+    .build();
+
+UserService service = retrofit.create(UserService.class);  
+service.profilePicture("/profile-picture/path");
+
+// request url results in:
+// https://your.api.url/profile-picture/path
+```
+
+第三个例子和第二个例子的不同在于：在基本地址上，我们添加了 `v2/`，端点地址以 `/` 开头。因为端点地址以 `/` 开头，因此，端点地址会与基本地址中的 `host` 部分结合，也就是与最终的请求网址为：`https://your.api.url/profile-picture/path`。当端点地址以 `/` 开头时，基本地址除 `host` 之外的部分都会被忽略。
+
+## 观点
+---
+你需要注意的是：正确创建请求 `Url`。本文中的示例显示了一些常见的陷阱，这些陷阱很容易就被触犯。要么确保使用包含 `scheme`、`host` 和 `path` 的完整 `Url`，要么在使用 `Url` 前，好好的学习理解下。
+
+我们建议：使用 `Retrofit 2` 处理 `Url` 时，要有足够的耐心。
+
 
 
 [^1x]: 	不知道什么意思。`hack around` 是美国口语，有闲逛的意思。
