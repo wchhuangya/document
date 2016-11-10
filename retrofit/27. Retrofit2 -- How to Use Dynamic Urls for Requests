@@ -1,0 +1,77 @@
+---
+title: 27. Retrofit2 -- How to Use Dynamic Urls for Requests 
+tags: Retrofit,tutorial
+grammar_cjkRuby: true
+---
+
+[toc]
+
+最终，`Retrofit 2` 为动态 `url` 添加了一个额外的注解。在 `Retrofit 1` 中，它是一个 `hackround`[^1x]。但在 `Retrofit 2` 中，它是一个注解，用于端点申明。
+
+该节显示了如何在单个请求上使用动态端点 `url`。
+
+##  用户案例场景
+---
+猛然间，你可能一时还想不到需要定义动态端口 `url` 的场景。那我们就给出两个示例，来说明真实世界的场景。
+
+1. 个人图片：如果应用允许用户上传个人图片，那么这些图片可能被存储在不同的位置。例如自己的服务器，或其它云存储服务器等。
+2. 文件上传：文件可以被存储在不同的位置，它们需要用任意资源路径，可以灵活的下载。
+
+即使你的应用中没有上述的两个假想的功能，但是，你应该有适当的心态来完成这两个示例。
+
+## 如何使用动态 Url
+---
+其实，对于 `Retrofit 2` 来说，动态 `Url` 只需要在端点定义中，添加一个使用 `@Url` 标注的字符串参数就可以了。简单的代码胜过千言万语，翠花，上代码：
+
+``` java?linenums=true
+public interface UserService {  
+    @GET
+    public Call<ResponseBody> profilePicture(@Url String url);
+}
+```
+正如你所见，`@GET` 注解后，没有任何端点信息，而是把 `@Url` 注解添加到方法本身了。
+
+## 相对于基本地址，动态 Url 如何解析
+---
+这是另外一个值得注意的有趣的事情。`Retrofit 2` 使用了 `OKHttp` 的 `HTTPUrl`，它把每一个端点 `Url` 都当成了网页上的一个链接（`<a href=""></a>`）。
+
+让我们看一个例子：一个指向 **Amazon S~3~** 个人照片存储的  `Url`。我们将有两个 `Url`：一个是基本 `Url`，一个是个人照片方法使用的动态 `Url`。
+
+``` java?linenums=true
+Retrofit retrofit = Retrofit.Builder()  
+    .baseUrl("https://your.api.url/");
+    .build();
+
+UserService service = retrofit.create(UserService.class);  
+service.profilePicture("https://s3.amazon.com/profile-picture/path");
+
+// request url results in:
+// https://s3.amazon.com/profile-picture/path
+```
+
+因为你设置了完全不同的 `host` 和 `scheme`，因此，`OKHttp` 的 `HTTPUrl` 将把方法中的 `Url` 解析为动态 `Url`。
+
+另一个例子：我们把个人照片的动态 `Url` 的服务与基本 `Url` 的服务设置为一致。
+
+``` java?linenums=true
+Retrofit retrofit = Retrofit.Builder()  
+    .baseUrl("https://your.api.url/");
+    .build();
+
+UserService service = retrofit.create(UserService.class);  
+service.profilePicture("profile-picture/path");
+
+// request url results in:
+// https://your.api.url/profile-picture/path
+```
+
+这次，最终的请求 `Url` 由基本 `Url` 加上动态定义的端点 `Url` 所组成。这是因为 `HttpUrl` 识别出我们并没有定义 `scheme` 和 `host`，因此，它会把这两者结合到一起。
+
+
+
+[^1x]: 	不知道什么意思。`hack around` 是美国口语，有闲逛的意思。
+
+
+
+
+
