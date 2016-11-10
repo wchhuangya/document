@@ -1,0 +1,150 @@
+---
+title: 4. Retrofit2 -- OAuth on Android 
+tags: Retrofit,tutorial
+grammar_cjkRuby: true
+---
+
+[toc]
+
+本课演示了在 `Android` 应用中如何进行 `OAuth API` 的认证。本课不会深入 `OAuth` 本身的详情，只是讲述一些最基本的原则和为了理解认证流程而必须知道的细节。
+
+## OAuth 基础
+---
+`OAuth` 是一个以 `token` 为基础的认证方法，它在用户和 `API` 的交互中使用 `access token`。`OAuth` 需要几个步骤来从 `API` 中获取你的 `access token`。
+
+1. 如果你想使用某个 `API` 对应用进行开发，打开该 `API` 公开的开发网站，注册一个账号
+2. 在应用中保存 `client id` 和 `client secret`
+3. 从应用中请求并获取用户数据
+4. 使用认证获取 `access token`
+5. 使用 `access token` 和 `API` 进行交互
+
+## 注册你的应用
+---
+在应用开始开发之前，你必须在想要使用 `API` 的网站上注册你的应用。一旦应用的注册完成，你将拥有 `client id` 和 `client secret`。当你的应用和 服务/`API` 进行认证时，这两个值都是必须的。
+
+## 创建项目
+---
+我们假定你已经创建好了项目。如果没有，那你只需要创建一个 `Android` 项目就可以了。如果你做完了这些，请移步下一段落。
+
+## 集成 OAuth
+---
+我们要使用第 `2` 节课中的 `ServiceGenerator` 类，对它进行扩展，给它添加一个用于处理 `OAuth access token` 的方法。下面的代码片断显示了 `ServiceGenerator` 类中必须的方法。这不意味着你要删除原来写好的方法，因为在 `OAuth` 认证中，你同样需要它们。
+
+### Retrofit 1.9
+
+``` java?linenums=true
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "https://your.api-base.url";
+
+    private static RestAdapter.Builder builder = new RestAdapter.Builder()
+                .setEndpoint(API_BASE_URL)
+                .setClient(new OkClient(new OkHttpClient()));
+
+    public static <S> S createService(Class<S> serviceClass) {
+        return createService(serviceClass, null);
+    }
+
+    public static <S> S createService(Class<S> serviceClass, String username, String password) {
+        // we shortened this part, because it’s covered in 
+        // the previous post on basic authentication with Retrofit
+    }
+
+    public static <S> S createService(Class<S> serviceClass, AccessToken token) {
+          if (token != null) {
+              builder.setRequestInterceptor(new RequestInterceptor() {
+                  @Override
+                  public void intercept(RequestFacade request) {
+                      request.addHeader("Accept", "application/json")
+                      request.addHeader("Authorization", 
+                          token.getTokenType() + " " + token.getAccessToken());
+                  }
+              });
+          }
+
+        RestAdapter adapter = builder.build();
+        return adapter.create(serviceClass);
+    }
+}
+```
+
+### Retrofit 2
+
+``` java?linenums=true
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "https://your.api-base.url";
+
+    private static OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+
+    private static Retrofit.Builder builder =
+            new Retrofit.Builder()
+                    .baseUrl(API_BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create());
+
+    public static <S> S createService(Class<S> serviceClass) {
+        return createService(serviceClass, null);
+    }
+
+    public static <S> S createService(Class<S> serviceClass, String username, String password) {
+        // we shortened this part, because it’s covered in 
+        // the previous post on basic authentication with Retrofit
+    }
+
+    public static <S> S createService(Class<S> serviceClass, AccessToken token) {
+        if (token != null) {
+            httpClient.addInterceptor(new Interceptor() {
+                @Override
+                public Response intercept(Interceptor.Chain chain) throws IOException {
+                    Request original = chain.request();
+
+                    Request.Builder requestBuilder = original.newBuilder()
+                        .header("Accept", "application/json")
+                        .header("Authorization",
+                            token.getTokenType() + " " + token.getAccessToken())
+                        .method(original.method(), original.body());
+
+                    Request request = requestBuilder.build();
+                    return chain.proceed(request);
+                }
+            });
+        }
+
+        OkHttpClient client = httpClient.build();
+        Retrofit retrofit = builder.client(client).build();
+        return retrofit.create(serviceClass);
+    }
+}
+```
+
+我们使用 `RequestInterceptor` 来把 `Authorization` 字段设置到 `HTTP` 的请求头部。该字段的值包含两部分内容：1. `OAuth` 请求的类型（`Bearer`）；2. `access token`。
+
+上面的代码中，方法需要 `AccessToken` 类型的参数，该类的内容如下：
+
+``` java?linenums=true
+public class AccessToken {
+
+    private String accessToken;
+    private String tokenType;
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public String getTokenType() {
+        // OAuth requires uppercase Authorization HTTP header value for token type
+        if ( ! Character.isUpperCase(tokenType.charAt(0))) {
+            tokenType = 
+                Character
+                    .toString(tokenType.charAt(0))
+                    .toUpperCase() + tokenType.substring(1);
+        }
+
+        return tokenType;
+    }
+}
+```
+
+
+
+

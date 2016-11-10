@@ -1,0 +1,133 @@
+---
+title: 3. Retrofit2 - Token Authentication on Android
+tags: Retrofit,tutorial
+grammar_cjkRuby: true
+---
+
+[toc]
+
+
+本课描述和显示了如何在 `Android app` 上进行基于 `API` 的 `token` 认证。本课覆盖了从 `Android app` 到任一 `webservice` 或任何支持该类型认证的 `API` 的 `token` 认证。
+
+## 集成 Token 认证
+---
+如果你阅读了前一课，那你应该可以猜得到我们接下来将要做的内容：扩展 `ServiceGenerator` 类，集成一个方法，用于处理 `token` 认证。
+
+### Retrofit 1.9
+
+``` java?linenums=true
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "https://your.api-base.url";
+
+    private static RestAdapter.Builder builder = new RestAdapter.Builder()
+                .setEndpoint(API_BASE_URL)
+                .setClient(new OkClient(new OkHttpClient()));
+
+    public static <S> S createService(Class<S> serviceClass) {
+        return createService(serviceClass, null);
+    }
+
+    public static <S> S createService(Class<S> serviceClass, final String authToken) {  
+      if (authToken != null) {
+          builder.setRequestInterceptor(new RequestInterceptor() {
+              @Override
+              public void intercept(RequestFacade request) {
+                  request.addHeader("Authorization", authToken);
+              }
+          });
+      }
+
+      RestAdapter adapter = builder.build();
+      return adapter.create(serviceClass);
+    }
+}
+```
+### Retrofit 2
+
+``` java?linenums=true
+public class ServiceGenerator {
+
+    public static final String API_BASE_URL = "https://your.api-base.url";
+
+    private static OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+
+    private static Retrofit.Builder builder =
+            new Retrofit.Builder()
+                    .baseUrl(API_BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create());
+
+    public static <S> S createService(Class<S> serviceClass) {
+        return createService(serviceClass, null);
+    }
+
+    public static <S> S createService(Class<S> serviceClass, final String authToken) {
+        if (authToken != null) {
+            httpClient.addInterceptor(new Interceptor() {
+                @Override
+                public Response intercept(Interceptor.Chain chain) throws IOException {
+                    Request original = chain.request();
+
+                    // Request customization: add request headers
+                    Request.Builder requestBuilder = original.newBuilder()
+                            .header("Authorization", authToken)
+                            .method(original.method(), original.body());
+
+                    Request request = requestBuilder.build();
+                    return chain.proceed(request);
+                }
+            });
+        }
+
+        OkHttpClient client = httpClient.build();
+        Retrofit retrofit = builder.client(client).build();
+        return retrofit.create(serviceClass);
+    }
+}
+```
+
+正如你所见，我们把用于认证的 `token` 当作参数传入方法，使用 `RequestInterceptor`（`Retrofit 2.0` 使用 `Interceptor`）来为 `HTTP` 设置头部的认证信息。
+
+从现在起，使用该方法创建的每个 `HTTP` 客户端都集成了 `key` 为 `Authorization` 的 `token` 认证信息，并会自动把 `token` 值传给请求的 `API` 端点。
+
+## 用法示例
+---
+让我们来做一个例子。下面的 `UserService` 接口申明了一个名为 `me()` 的方法。该方法返回一个由 `API` 响应创建的 `user` 对象。
+
+### Retrofit 1.9
+
+``` java?linenums=true
+public interface UserService {  
+    @POST("/me")
+    User me();
+}
+```
+### Retrofit 2
+
+``` java?linenums=true
+public interface UserService {  
+    @POST("/me")
+    Call<User> me();
+}
+```
+
+即将要调用的 `API` 等待 `http://your.api-base.url/me` 端点的请求，在响应中，需要认证信息来获取用户的数据。现在，让我们创建一个 `user` 对象来做真实的请求。
+
+### Retrofit 1.9
+
+``` java?linenums=true
+UserService userService =  
+    ServiceGenerator.create(UserService.class, "auth-token");
+User user = userService.me();  
+```
+
+### Retrofit 2
+
+``` java?linenums=true
+UserService userService =  
+    ServiceGenerator.create(UserService.class, "auth-token");
+Call<User> call = userService.me();  
+User user = call.execute().body();  
+```
+
+上面的代码只是出于演示目的。当然，实际使用中，你需要把真实的 `token` 值传递给 `ServiceGenerator` 的方法。
