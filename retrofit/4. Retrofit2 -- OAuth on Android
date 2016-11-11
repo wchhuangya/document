@@ -145,6 +145,101 @@ public class AccessToken {
 }
 ```
 
+`AccessToken` 类由两个字段组成：`accessToken`、`tokenType`。因为 `OAuth API` 的实现要求 `token type` 是大写，因此我们检查首字母的格式。如果不是大写，就对它进行更新。例如，如果你的 `API` 返回的 `token type` 是 `bearer`，那么，使用该 `token type` 的任何请求将会引起 `401 Unauthorized`、`403 Forbidden` 或 `400 Bad Request` 的结果。
+
+最终的 `HTTP` 头部如果设置正确，类似于下面的结果：
+
+``` java?linenums=true
+Authorization: Bearer 12345
+```
+
+## 在应用中集成 OAuth
+---
+首先，需要创建一个 `LoginActivity`。因为是实验，因此可以使用简单的视图，布局中只有一个按钮。下面是 `LoginActivity` 的代码：
+
+``` java?linenums=true
+public class LoginActivity extends Activity {
+
+    // you should either define client id and secret as constants or in string resources
+    private final String clientId = "your-client-id";
+    private final String clientSecret = "your-client-secret";
+    private final String redirectUri = "your://redirecturi";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        Button loginButton (Button) findViewById(R.id.loginbutton);
+        loginButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(ServiceGenerator.API_BASE_URL + "/login" + "?client_id=" + clientId + "&redirect_uri=" + redirectUri));
+                startActivity(intent);
+            }
+        });
+    }
+}
+```
+
+在你的实现代码中，必须为类属性：`clientId`，`clientSecret`，`redirectUri` 赋予合适的值。同时，要确保 `login` 的 `url` 部分是可访问的。如果不行，请把它更新合适。然后，给按钮设置点击事件监听。当按钮事件被触发时，会打开一个网页用于显示预定义的网址。
+
+> 注意：在这次请求中，你必须提供 `clientId` 和 `clientSecrect`。这是因为 `API` 需要这两个参数来进行更进一步的操作。
+
+此外，检查 `Uri.parse(...)` 部分。必须把这个 `url` 指向登录（或认证）的端口，这样才能在屏幕上显示访问权限。
+
+`activity_login.xml` 的布局如下：
+
+``` xml?linenums=true
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"  
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Login"
+        android:id="@+id/loginbutton"
+        android:gravity="center_vertical|center_horizontal"
+        />
+</RelativeLayout> 
+```
+
+## 在 AndroidManifest.xml 文件中定义 Activity 和 intent-filter
+---
+`Android` 中的 `Intent` 是用于从其它应用或组件请求动作或信息的元素。`intent filter` 用于从 `intent` 中捕获信息，它由 `intent` 的 `action`， `category` 和 `data` 共同定义。
+
+`intent filter` 用于让 `Android` 系统返回到你的应用，因此，你可以从响应的 `intent` 中，获取更多的数据。这就意味着，在点击了 `LoginActivity` 的按钮后，就会启动 `intent`，然后这个 `filter` 将会捕获所有响应，使得额外的信息可用。下面的代码就是 `filter` 的定义：
+
+``` xml?linenums=trye
+<activity  
+    android:name="com.futurestudio.oauthexample.LoginActivity"
+    android:label="@string/app_name"
+    android:configChanges="keyboard|orientation|screenSize">
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:host="redirecturi"
+            android:scheme="your" />
+    </intent-filter>
+</activity>
+```
+
+## 获取 Authorization Code
+---
+好的，到现在为止，我们已经定义了用于展示 `webview` 的 `intent`，展示的页面可能是拒绝页面，也可能是允许页面。
+
+
+
+
+
+
+
 
 
 
